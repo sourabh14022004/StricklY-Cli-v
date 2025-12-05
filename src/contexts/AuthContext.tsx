@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { Platform } from 'react-native';
 import { 
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -9,19 +10,27 @@ import {
   signInWithCredential,
   User as FirebaseUser
 } from 'firebase/auth';
-import { auth } from '../config/FirebaseConfig';
+import { auth, type Auth } from '../config/FirebaseConfig';
 import { GoogleAuthProvider } from 'firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { upsertUser } from '../services/userService';
 
 // Configure Google Sign-In
+// Using client IDs from existing GoogleService-Info.plist
 GoogleSignin.configure({
-  webClientId: '277355716853-p6raq7um8eatb38nuqdmmu42tqkq15gr.apps.googleusercontent.com',
-  iosClientId: '277355716853-oosmp5fgo7gh87iusp93usoho2ddk932.apps.googleusercontent.com',
+  webClientId: '277355716853-p6raq7um8eatb38nuqdmmu42tqkq15gr.apps.googleusercontent.com', // From Firebase Console (Web Client ID)
+  iosClientId: '277355716853-ldo2mtq04a4l4bm5vf05kss36b0ggpu1.apps.googleusercontent.com', // From GoogleService-Info.plist (CLIENT_ID)
+  offlineAccess: true, // if you want to access Google API on behalf of the user FROM YOUR SERVER
+  scopes: [
+    'https://www.googleapis.com/auth/calendar.readonly',
+    'https://www.googleapis.com/auth/calendar.events',
+  ],
 });
 
 interface User {
   email: string | null;
   displayName: string | null;
+  photoURL: string | null;
   uid: string;
 }
 
@@ -61,6 +70,7 @@ const convertFirebaseUser = (firebaseUser: FirebaseUser | null): User | null => 
   return {
     email: firebaseUser.email,
     displayName: firebaseUser.displayName,
+    photoURL: firebaseUser.photoURL,
     uid: firebaseUser.uid,
   };
 };
@@ -73,7 +83,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Listen to auth state changes
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       console.log('Auth state changed:', firebaseUser ? `User: ${firebaseUser.email}` : 'User signed out');
-      setUser(convertFirebaseUser(firebaseUser));
+      const converted = convertFirebaseUser(firebaseUser);
+      setUser(converted);
+
+      // Best-effort upsert of profile data
+      if (converted) {
+        upsertUser(converted).catch((err) => {
+          console.warn('Failed to upsert user profile on auth change:', err);
+        });
+      }
       setLoading(false);
     });
 
@@ -100,6 +118,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       const convertedUser = convertFirebaseUser(firebaseUser);
       setUser(convertedUser);
+      // Persist profile to Firestore
+      if (convertedUser) {
+        await upsertUser(convertedUser);
+      }
       setLoading(false);
       // Navigation to MainAppScreen happens automatically in App.tsx when user is set
       return { success: true, user: convertedUser || undefined };
@@ -144,6 +166,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const firebaseUser = userCredential.user;
       const convertedUser = convertFirebaseUser(firebaseUser);
       setUser(convertedUser);
+      // Persist profile to Firestore
+      if (convertedUser) {
+        await upsertUser(convertedUser);
+      }
       setLoading(false);
       // Navigation to MainAppScreen happens automatically in App.tsx when user is set
       return { success: true, user: convertedUser || undefined };
@@ -193,19 +219,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setLoading(true);
       
-      // Check if your device supports Google Play
+      // Check if your device supports Google Play (Android only)
+      if (Platform.OS === 'android') {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      }
       
-      // Get the user's ID token
-      const { idToken } = await GoogleSignin.signIn();
+      // Sign in with Google
+      await GoogleSignin.signIn();
       
-      if (!idToken) {
+      // Get the ID token
+      const tokens = await GoogleSignin.getTokens();
+      
+      if (!tokens.idToken) {
         setLoading(false);
         return { success: false, error: 'No ID token received from Google' };
       }
       
       // Create a Google credential with the ID token
-      const googleCredential = GoogleAuthProvider.credential(idToken);
+      const googleCredential = GoogleAuthProvider.credential(tokens.idToken);
       
       // Sign in to Firebase with the Google credential
       const userCredential = await signInWithCredential(auth, googleCredential);
@@ -213,6 +244,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       const convertedUser = convertFirebaseUser(firebaseUser);
       setUser(convertedUser);
+      // Persist profile to Firestore
+      if (convertedUser) {
+        await upsertUser(convertedUser);
+      }
       setLoading(false);
       
       return { success: true, user: convertedUser || undefined };
@@ -234,7 +269,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       // Sign out from Google Sign-In if signed in (handle errors gracefully)
       try {
-        if (await GoogleSignin.isSignedIn()) {
+        const currentUser = await GoogleSignin.getCurrentUser();
+        if (currentUser) {
           await GoogleSignin.signOut();
           console.log('Google Sign-In signed out successfully');
         }

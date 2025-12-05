@@ -22,6 +22,15 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
+        <!-- Google Sign In -->
+        <intent-filter>
+          <action android:name="android.intent.action.VIEW" />
+          <category android:name="android.intent.category.DEFAULT" />
+          <category android:name="android.intent.category.BROWSABLE" />
+          <!-- Replace with REVERSED_CLIENT_ID from google-services.json when you add it -->
+          <!-- For now using placeholder - update after adding google-services.json -->
+          <data android:scheme="com.googleusercontent.apps.277355716853-p6raq7um8eatb38nuqdmmu42tqkq15gr" />
+        </intent-filter>
       </activity>
     </application>
 </manifest>

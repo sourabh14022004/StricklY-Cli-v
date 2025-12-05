@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   sectionCard: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#000000',
     borderRadius: 20,
     padding: 18,
     shadowColor: '#000',
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#6B7280',
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#000000',
   },
   themeChipActive: {
     backgroundColor: '#6B46C1',

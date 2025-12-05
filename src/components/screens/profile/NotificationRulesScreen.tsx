@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   sectionCard: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#000000',
     borderRadius: 20,
     padding: 18,
     shadowColor: '#000',

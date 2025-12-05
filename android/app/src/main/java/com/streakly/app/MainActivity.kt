@@ -1,4 +1,4 @@
-package com.streakly1
+package com.streakly.app
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

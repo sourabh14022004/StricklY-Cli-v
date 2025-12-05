@@ -9,6 +9,7 @@ import {
   Platform,
   Switch,
   Alert,
+  Linking,
   Animated,
   Easing,
   SafeAreaView,
@@ -16,6 +17,7 @@ import {
 import { LinearGradient } from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Svg, { Circle } from 'react-native-svg';
+import WarpDriveShader from '../ui/warp-drive-shader';
 
 
 const FocusScreen: React.FC = () => {
@@ -46,18 +48,37 @@ const FocusScreen: React.FC = () => {
     }
   };
 
+  const openDoNotDisturbSettings = async () => {
+    try {
+      if (Platform.OS === 'android') {
+        await Linking.openSettings();
+        return;
+      }
+
+      const iosDndUrl = 'App-Prefs:root=DO_NOT_DISTURB';
+      if (await Linking.canOpenURL(iosDndUrl)) {
+        await Linking.openURL(iosDndUrl);
+        return;
+      }
+
+      await Linking.openSettings();
+    } catch (settingsError) {
+      console.error('Unable to open DND settings:', settingsError);
+      await Linking.openSettings();
+    }
+  };
+
   // Enable DND (Do Not Disturb) mode
   const enableDND = async () => {
     try {
-      // Note: Actual DND implementation requires native modules
-      // For now, we'll simulate it. You can integrate with:
-      // - expo-notifications for notification blocking
-      // - Native modules for system-level DND
       console.log('Enabling Do Not Disturb mode...');
+      Alert.alert(
+        'Do Not Disturb',
+        'We will open your device settings so you can enable Do Not Disturb for this focus session.',
+      );
+
+      await openDoNotDisturbSettings();
       setIsDNDEnabled(true);
-      
-      // TODO: Implement actual DND using native modules or expo-notifications
-      // Example: await Notifications.setNotificationHandler({ ... });
     } catch (error) {
       console.error('Failed to enable DND:', error);
       Alert.alert('Error', 'Failed to enable Do Not Disturb mode');
@@ -324,8 +345,9 @@ const FocusScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" translucent={false} />
+      <WarpDriveShader />
       <LinearGradient
-        colors={['#1A0B2E', '#2D1B4E', '#3D2B5E']}
+        colors={['rgba(26, 11, 46, 0.7)', 'rgba(45, 27, 78, 0.7)', 'rgba(61, 43, 94, 0.7)']}
         style={styles.gradient}
       >
         <ScrollView
@@ -543,6 +565,7 @@ const styles = StyleSheet.create({
   },
   gradient: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
   scrollView: {
     flex: 1,
@@ -575,7 +598,7 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#000000',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
@@ -620,7 +643,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#000000',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -632,7 +655,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   taskCard: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#000000',
     borderRadius: 20,
     padding: 20,
     marginBottom: 20,
@@ -672,7 +695,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   settingsCard: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#000000',
     borderRadius: 20,
     padding: 4,
     marginBottom: 24,

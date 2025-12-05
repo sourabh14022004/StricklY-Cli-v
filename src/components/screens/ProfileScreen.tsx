@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
   SafeAreaView,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
@@ -34,7 +35,7 @@ interface NavigationProp {
 interface SectionItem {
   id: ProfileScreenName;
   title: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: string;
 }
 
 interface ProfileScreenProps {
@@ -122,14 +123,22 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
             <View style={styles.profileCard}>
               <View style={styles.profileHeader}>
                 <View style={styles.avatarPlaceholder}>
-                  <Text style={styles.avatarInitials}>
-                    {(user?.displayName || 'U')
-                      .split(' ')
-                      .map((p) => p[0])
-                      .join('')
-                      .slice(0, 2)
-                      .toUpperCase()}
-                  </Text>
+                  {user?.photoURL ? (
+                    <Image
+                      source={{ uri: user.photoURL }}
+                      style={styles.avatarImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text style={styles.avatarInitials}>
+                      {(user?.displayName || 'U')
+                        .split(' ')
+                        .map((p) => p[0])
+                        .join('')
+                        .slice(0, 2)
+                        .toUpperCase()}
+                    </Text>
+                  )}
                 </View>
                 <View style={styles.userTextWrapper}>
                   <Text style={styles.userName}>
@@ -197,7 +206,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    paddingTop: 20,
+    paddingTop: Platform.OS === 'ios' ? 10 : 20,
     paddingHorizontal: 20,
     paddingBottom: 160,
   },
@@ -216,8 +225,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    borderColor: 'rgba(255,255,255,0.2)',
-    borderWidth: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -227,15 +235,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   profileCard: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 24,
+    backgroundColor: '#000000',
+    borderRadius: 20,
     padding: 20,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 4,
   },
   profileHeader: {
     flexDirection: 'row',
@@ -249,6 +252,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#6B46C1',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
   },
   avatarInitials: {
     color: '#FFFFFF',
@@ -277,14 +286,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sectionsContainer: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#000000',
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 4,
   },
   sectionRow: {
     flexDirection: 'row',
@@ -310,14 +314,9 @@ const styles = StyleSheet.create({
   },
   logoutContainer: {
     marginTop: 20,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#000000',
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 4,
   },
   logoutButton: {
     flexDirection: 'row',
@@ -326,10 +325,10 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     gap: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
   },
   logoutText: {
-    color: '#FF6B6B',
+    color: '#EF4444',
     fontSize: 16,
     fontWeight: '700',
   },

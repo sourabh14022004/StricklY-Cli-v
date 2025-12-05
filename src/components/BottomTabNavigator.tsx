@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,9 @@ import {
   StyleSheet,
   Dimensions,
   Platform,
+  Animated,
+  Easing,
+  Alert,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import HomeScreen from './screens/HomeScreen';
@@ -16,8 +19,15 @@ import Entypo from 'react-native-vector-icons/Entypo';
 import Octicons from 'react-native-vector-icons/Octicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import ActionDrawer from './ui/ActionDrawer';
+import EventCreationModal from './ui/EventCreationModal';
+import TodoCreationModal from './ui/TodoCreationModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DeviceEventEmitter } from 'react-native';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { createCalendarEvent } from '../services/googleCalendar';
 
-const { width } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
 const FAB_SIZE = 64;
 const FAB_RADIUS = FAB_SIZE / 2;
 const NAV_BAR_HEIGHT = Platform.OS === "ios" ? 85 : 80;
@@ -26,6 +36,36 @@ type TabType = "home" | "focus" | "add" | "captured" | "profile";
 
 const BottomTabNavigator: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>("home");
+  const [displayedTab, setDisplayedTab] = useState<TabType>("home"); // Tab currently being displayed
+  const previousTabRef = useRef<TabType>("home");
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const [eventModalVisible, setEventModalVisible] = useState(false);
+  const [todoModalVisible, setTodoModalVisible] = useState(false);
+  // Animation values for smooth fade transitions
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  // Glowing pulse animation for the center FAB
+  const glowAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Looping pulse for the glow around the FAB
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 900,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0,
+          duration: 900,
+          easing: Easing.in(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
+  }, [glowAnim]);
 
   const renderTabIcon = (tab: TabType, isActive: boolean) => {
     const iconColor = isActive ? "#FF6B6B" : "#FFFFFF";
@@ -80,8 +120,36 @@ const BottomTabNavigator: React.FC = () => {
     }
   };
 
+  // Animate screen transitions with fade only
+  useEffect(() => {
+    if (activeTab !== displayedTab) {
+      // Fade out current screen first
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 0,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }).start(() => {
+        // Update displayed tab AFTER fade out completes
+        setDisplayedTab(activeTab);
+        previousTabRef.current = activeTab;
+        
+        // Small delay before fading in for smoother transition
+        setTimeout(() => {
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 0,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+          }).start();
+        }, 0); // 50ms delay between fade out and fade in
+      });
+    }
+  }, [activeTab, displayedTab]);
+
   const renderContent = () => {
-    switch (activeTab) {
+    // Use displayedTab instead of activeTab so content only changes after fade out
+    switch (displayedTab) {
       case "home":
         return <HomeScreen />;
       case "focus":
@@ -98,17 +166,28 @@ const BottomTabNavigator: React.FC = () => {
   const handleTabPress = (tab: TabType) => {
     if (tab !== "add") {
       setActiveTab(tab);
+      if (drawerVisible) {
+        setDrawerVisible(false);
+      }
     } else {
-      // Handle Add button press
-      console.log("Add button pressed");
-      // You can add navigation logic or modal here
+      // Handle Add button press - toggle drawer
+      setDrawerVisible(!drawerVisible);
     }
   };
 
   return (
     <View style={styles.container}>
-      {/* Main Content */}
-      <View style={styles.content}>{renderContent()}</View>
+      {/* Main Content with Fade Animation */}
+      <Animated.View
+        style={[
+          styles.content,
+          {
+            opacity: fadeAnim,
+          },
+        ]}
+      >
+        {renderContent()}
+      </Animated.View>
 
       {/* Bottom Navigation Bar */}
       <View style={styles.navBarContainer}>
@@ -125,7 +204,8 @@ const BottomTabNavigator: React.FC = () => {
                 L${width} ${NAV_BAR_HEIGHT}
                 L0 ${NAV_BAR_HEIGHT}
             `}
-              fill="#1A1A1A"
+              // Slightly translucent deep purple to match app gradient
+              fill="rgba(12, 10, 24, 0.98)"
             />
           </Svg>
 
@@ -204,13 +284,147 @@ const BottomTabNavigator: React.FC = () => {
             <TouchableOpacity
               style={styles.fabTouchable}
               onPress={() => handleTabPress("add")}
-              activeOpacity={0.9}
+              activeOpacity={0.3}
             >
-              {renderTabIcon("add", false)}
+              <Animated.View
+                style={[
+                  styles.fabCircle,
+                  {
+                    transform: [
+                      {
+                        scale: glowAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [1, 1.03],
+                        }),
+                      },
+                    ],
+                    shadowOpacity: glowAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.4, 0.9],
+                    }),
+                  },
+                ]}
+              >
+                <MaterialIcons 
+                  name={drawerVisible ? "close" : "add"} 
+                  size={28} 
+                  color="#FFFFFF" 
+                />
+              </Animated.View>
             </TouchableOpacity>
           </View>
         </View>
       </View>
+
+      {/* Action Drawer */}
+      <ActionDrawer
+        visible={drawerVisible}
+        onClose={() => setDrawerVisible(false)}
+        onBirthdayPress={() => {
+          // Handle birthday press
+          console.log('Birthday pressed');
+        }}
+        onTodoPress={() => {
+          // Handle out of office press
+          console.log('Out of office pressed');
+          setTodoModalVisible(true);
+        }}
+        onWorkingLocationPress={() => {
+          // Handle working location press
+          console.log('Working location pressed');
+        }}
+        onTaskPress={() => {
+          // Handle task press
+          console.log('Task pressed');
+        }}
+        onEventPress={() => {
+          // Open event creation modal
+          setEventModalVisible(true);
+        }}
+      />
+
+      {/* Event Creation Modal */}
+      <EventCreationModal
+        visible={eventModalVisible}
+        onClose={() => setEventModalVisible(false)}
+        onCreateEvent={async (event) => {
+          try {
+            const tokens = await GoogleSignin.getTokens();
+            
+            if (!tokens.accessToken) {
+              Alert.alert('Error', 'Please sign in with Google to create events');
+              return;
+            }
+
+            await createCalendarEvent(tokens.accessToken, event);
+
+            Alert.alert('Success', 'Event created successfully!', [
+              { text: 'OK' },
+            ]);
+          } catch (error: any) {
+            console.error('Failed to create event:', error);
+            
+            // Check if it's a scope/permission error
+            if (error?.message?.includes('403') || 
+                error?.message?.includes('insufficient') ||
+                error?.message?.includes('PERMISSION_DENIED')) {
+              Alert.alert(
+                'Permission Required',
+                'Calendar write permission is required. Please sign out and sign in again with Google to grant this permission.',
+                [
+                  { text: 'OK' },
+                ]
+              );
+            } else {
+              Alert.alert(
+                'Error',
+                error?.message || 'Failed to create event. Please try again.',
+              );
+            }
+            throw error; // Re-throw to let modal handle it
+          }
+        }}
+      />
+
+      {/* Todo Creation Modal */}
+      <TodoCreationModal
+        visible={todoModalVisible}
+        onClose={() => setTodoModalVisible(false)}
+        onCreateTodo={async (todo) => {
+          try {
+            // Get existing todos from AsyncStorage
+            const todosJson = await AsyncStorage.getItem('todos');
+            const existingTodos = todosJson ? JSON.parse(todosJson) : [];
+
+            // Create new todo with id and timestamp
+            const newTodo = {
+              id: Date.now().toString(),
+              title: todo.title,
+              description: todo.description,
+              dueDate: todo.dueDate ? todo.dueDate.toISOString() : undefined,
+              priority: todo.priority || 'medium',
+              completed: false,
+              createdAt: new Date().toISOString(),
+            };
+
+            // Ensure existingTodos is an array
+            const todosArray = Array.isArray(existingTodos) ? existingTodos : [];
+
+            // Add new todo to the list
+            const updatedTodos = [...todosArray, newTodo];
+
+            // Save back to AsyncStorage
+            await AsyncStorage.setItem('todos', JSON.stringify(updatedTodos));
+
+            // Notify listeners (HomeScreen) to refresh
+            DeviceEventEmitter.emit('todosUpdated');
+
+            console.log('Todo created:', newTodo);
+          } catch (error) {
+            console.error('Failed to create todo from BottomTabNavigator:', error);
+          }
+        }}
+      />
     </View>
   );
 };
@@ -285,16 +499,24 @@ const styles = StyleSheet.create({
   },
   fabContainer: {
     position: "absolute",
+    // display: 'none',
     bottom: NAV_BAR_HEIGHT - FAB_RADIUS - 20,
     left: (width - FAB_SIZE) / 2,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 20,
   },
+  fabGlow: {
+    position: "absolute",
+    // (kept for potential future use; not used now)
+    width: FAB_SIZE,
+    height: FAB_SIZE,
+    borderRadius: FAB_RADIUS,
+  },
   fabTouchable: {
     alignItems: "center",
     justifyContent: "center",
-    paddingBottom: 20,
+    paddingBottom: 25,
   },
   fabCircle: {
     width: FAB_SIZE,
@@ -303,11 +525,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#E88B6B",
     alignItems: "center",
     justifyContent: "center",
-    // shadowColor: "#000",
-    // shadowOffset: { width: 0, height: 3 },
-    // shadowOpacity: 0.25,
-    // shadowRadius: 6,
-    // elevation: 6,
+    shadowColor: "#E88B6B",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 14,
+    elevation: 10,
   },
   fabLabel: {
     fontSize: 11,

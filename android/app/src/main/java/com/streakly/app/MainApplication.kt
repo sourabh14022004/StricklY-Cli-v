@@ -1,4 +1,4 @@
-package com.streakly1
+package com.streakly.app
 
 import android.app.Application
 import com.facebook.react.PackageList
